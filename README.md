@@ -5,9 +5,9 @@
 ```bash
 python3 -m venv venv
 source venv/bin/activate
-pip install -r requirement.txt
-python -m playwright install
-python -m playwright install-deps
+pip install -r requirements.txt
+playwright install
+playwright install-deps
 ```
 
 ## Deployment
