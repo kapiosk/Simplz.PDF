@@ -12,7 +12,7 @@ python -m playwright install-deps
 
 ## Deployment
 
-Service
+### Service
 
 ```bash
 sudo nano /etc/systemd/system/simplzpdf.service
@@ -34,9 +34,9 @@ ExecStart=/var/www/html/SimplzPDF/venv/bin/gunicorn --workers 3 --bind unix:simp
 WantedBy=multi-user.target
 ```
 
-_Please note that if you are using globals and main user, you might need to ommit group and environment_
+_Please note that if you are using globals and main user, you might need to omit group and environment_
 
-Reload systemctl
+### Reload systemctl
 
 ```bash
 sudo systemctl daemon-reload
@@ -60,7 +60,7 @@ Enable service if everything is ok
 sudo systemctl enable simplzpdf.service
 ```
 
-Nginx
+### Nginx
 
 ```bash
 server {
