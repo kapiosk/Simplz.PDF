@@ -53,6 +53,9 @@ def pdfToImage():
         with sync_playwright() as p:
             with p.chromium.launch() as browser:
                 page = browser.new_page()
+                if 'Authorization' in request.headers:
+                    authorization = request.headers['Authorization']
+                    page.set_extra_http_headers({'Authorization': f'Bearer {authorization}'})
                 page.goto(dataUrl)
                 page.wait_for_load_state('networkidle')
                 screenshot = page.screenshot(full_page=True)
