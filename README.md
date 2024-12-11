@@ -18,7 +18,7 @@ playwright install-deps
 sudo nano /etc/systemd/system/simplzpdf.service
 ```
 
-```bash
+```ini
 [Unit]
 Description=Gunicorn instance to serve simplzpdf
 After=network.target
@@ -28,7 +28,7 @@ User=www-data
 Group=www-data
 WorkingDirectory=/var/www/html/SimplzPDF
 Environment="PATH=/var/www/html/SimplzPDF/venv/bin"
-ExecStart=/var/www/html/SimplzPDF/venv/bin/gunicorn --workers 3 --bind unix:simplzpdf.sock -m 007 wsgi:app
+ExecStart=/var/www/html/SimplzPDF/venv/bin/gunicorn --workers 3 --bind unix:/var/www/html/SimplzPDF/simplzpdf.sock -m 007 wsgi:app
 
 [Install]
 WantedBy=multi-user.target
@@ -60,7 +60,33 @@ Enable service if everything is ok
 sudo systemctl enable simplzpdf.service
 ```
 
-### Nginx
+### Caddy
+
+Create a Caddyfile to configure Caddy as a reverse proxy for your Flask app.
+
+```bash
+sudo nano /etc/caddy/Caddyfile
+```
+
+Add the following content to the file:
+
+```caddyfile
+yourdomain.com {
+    reverse_proxy unix//var/www/html/SimplzPDF/simplzpdf.sock
+}
+```
+
+Replace `yourdomain.com` with your actual domain.
+
+Reload Caddy, start the service, and enable it to start on boot.
+
+```bash
+sudo systemctl reload caddy
+sudo systemctl start caddy
+sudo systemctl enable caddy
+```
+
+### Nginx (Alternative)
 
 ```bash
 server {
