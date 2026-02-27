@@ -12,61 +12,40 @@ playwright install-deps
 
 ## Docker
 
-### Build and run with Docker Compose
+### Quick Start
 
 ```bash
 docker compose up -d --build
 ```
 
-Service URL:
+Service available at `http://localhost:5501`
 
-```text
-http://localhost:5501
-```
-
-Stop:
+### Stop
 
 ```bash
 docker compose down
 ```
 
-### PowerShell deployment script (Windows)
+### Windows PowerShell Deployment
+
+The `deploy.ps1` script automates the deployment:
+- Stops existing containers
+- Rebuilds and starts services
+- Displays container status
 
 ```powershell
-.\deploy.ps1 -Action deploy
-```
-
-Other actions:
-
-```powershell
-.\deploy.ps1 -Action restart
-.\deploy.ps1 -Action stop
-.\deploy.ps1 -Action logs
-.\deploy.ps1 -Action logs -FollowLogs
-```
-
-Skip image rebuild during deploy:
-
-```powershell
-.\deploy.ps1 -Action deploy -NoBuild
+.\deploy.ps1
 ```
 
 ### Health Check
 
-Application endpoint:
-
-```text
-GET /health
-```
-
-Example:
+Endpoint: `GET /health`
 
 ```bash
 curl http://localhost:5501/health
 ```
 
-Check container health state:
-
+Check container status:
 ```bash
 docker compose ps
 ```
