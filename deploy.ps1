@@ -1,52 +1,17 @@
-param(
-    [ValidateSet("deploy", "restart", "stop", "logs")]
-    [string]$Action = "deploy",
-    [switch]$NoBuild,
-    [switch]$FollowLogs
-)
-
 $ErrorActionPreference = "Stop"
 
-function Assert-Command {
-    param([string]$Name)
-    if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
-        throw "Required command '$Name' was not found in PATH."
-    }
-}
+Write-Host "Stopping existing containers..." -ForegroundColor Yellow
+docker compose down
 
-Assert-Command -Name "docker"
+Write-Host "Building and starting services..." -ForegroundColor Green
+docker compose up -d --build
 
-Write-Host "Using project directory: $PSScriptRoot"
-Push-Location $PSScriptRoot
-
-try {
-    switch ($Action) {
-        "deploy" {
-            if ($NoBuild) {
-                docker compose up -d
-            }
-            else {
-                docker compose up -d --build
-            }
-            docker compose ps
-        }
-        "restart" {
-            docker compose restart
-            docker compose ps
-        }
-        "stop" {
-            docker compose down
-        }
-        "logs" {
-            if ($FollowLogs) {
-                docker compose logs -f --tail=200
-            }
-            else {
-                docker compose logs --tail=200
-            }
-        }
-    }
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "Deployment successful!" -ForegroundColor Green
+    docker compose ps
+} else {
+    Write-Host "Deployment failed!" -ForegroundColor Red
+    exit 1
 }
-finally {
-    Pop-Location
-}
+# Write-Host "Displaying logs for verification..." -ForegroundColor Cyan
+# docker compose logs -f
