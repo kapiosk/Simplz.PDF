@@ -10,6 +10,67 @@ playwright install
 playwright install-deps
 ```
 
+## Docker
+
+### Build and run with Docker Compose
+
+```bash
+docker compose up -d --build
+```
+
+Service URL:
+
+```text
+http://localhost:5501
+```
+
+Stop:
+
+```bash
+docker compose down
+```
+
+### PowerShell deployment script (Windows)
+
+```powershell
+.\deploy.ps1 -Action deploy
+```
+
+Other actions:
+
+```powershell
+.\deploy.ps1 -Action restart
+.\deploy.ps1 -Action stop
+.\deploy.ps1 -Action logs
+.\deploy.ps1 -Action logs -FollowLogs
+```
+
+Skip image rebuild during deploy:
+
+```powershell
+.\deploy.ps1 -Action deploy -NoBuild
+```
+
+### Health Check
+
+Application endpoint:
+
+```text
+GET /health
+```
+
+Example:
+
+```bash
+curl http://localhost:5501/health
+```
+
+Check container health state:
+
+```bash
+docker compose ps
+```
+
 ## Deployment
 
 ### Service

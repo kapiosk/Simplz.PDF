@@ -12,6 +12,10 @@ logging.basicConfig(level=logging.INFO)
 def index():
     return 'PostMe! PDF!!'
 
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify(status='ok'), 200
+
 @app.route('/Test', methods=['GET'])
 def test():
     try:
