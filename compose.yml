@@ -7,7 +7,6 @@ services:
     ports:
       - "5501:5501"
     restart: unless-stopped
-    network_mode: bridge
     environment:
       GUNICORN_WORKERS: "3"
     healthcheck:
