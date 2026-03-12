@@ -14,4 +14,4 @@ COPY . .
 
 EXPOSE 5501
 
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:5501 --workers ${GUNICORN_WORKERS:-3} wsgi:app"]
+CMD ["uvicorn", "wsgi:app", "--host", "0.0.0.0", "--port", "5501", "--workers", "1"]

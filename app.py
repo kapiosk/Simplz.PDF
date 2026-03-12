@@ -1,112 +1,150 @@
-from flask import Flask, request, Response, send_file, jsonify
-from playwright.sync_api import sync_playwright
+from fastapi import FastAPI, Request, HTTPException, Header, Query
+from fastapi.responses import StreamingResponse, JSONResponse, PlainTextResponse
+from playwright.async_api import async_playwright
 import io
 import logging
-import atexit
+from contextlib import asynccontextmanager
 
-app = Flask(__name__)
-
-# Configure logging
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 _playwright = None
 _browser = None
 
-def get_browser():
+async def get_browser():
     global _playwright, _browser
     if _browser is None or not _browser.is_connected():
         if _playwright is None:
-            _playwright = sync_playwright().start()
-        _browser = _playwright.chromium.launch()
+            _playwright = await async_playwright().start()
+        _browser = await _playwright.chromium.launch()
     return _browser
 
-def _cleanup():
+async def cleanup():
     global _playwright, _browser
     if _browser:
-        _browser.close()
+        await _browser.close()
     if _playwright:
-        _playwright.stop()
+        await _playwright.stop()
 
-atexit.register(_cleanup)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    await cleanup()
 
-@app.route('/', methods=['GET'])
-def index():
-    return 'PostMe! PDF!!'
+app = FastAPI(lifespan=lifespan)
 
-@app.route('/health', methods=['GET'])
-def health():
-    return jsonify(status='ok'), 200
+@app.get('/')
+async def index():
+    return PlainTextResponse('PostMe! PDF!!')
 
-@app.route('/Test', methods=['GET'])
-def test():
+@app.get('/health')
+async def health():
+    return JSONResponse(content={'status': 'ok'})
+
+@app.get('/Test')
+async def test():
     try:
-        browser = get_browser()
-        with browser.new_context(ignore_https_errors=True) as context:
-            page = context.new_page()
-            page.set_content('<p>Test</p>')
-            data = page.pdf(format='A4', print_background=True)
-            return Response(response=data, status=200, mimetype='application/pdf')
+        browser = await get_browser()
+        context = await browser.new_context(ignore_https_errors=True)
+        try:
+            page = await context.new_page()
+            await page.set_content('<p>Test</p>')
+            data = await page.pdf(format='A4', print_background=True)
+            return StreamingResponse(
+                io.BytesIO(data),
+                media_type='application/pdf',
+                headers={'Content-Disposition': 'inline; filename="test.pdf"'}
+            )
+        finally:
+            await context.close()
     except Exception as e:
-        logging.error(f"Error in /Test: {e}")
-        return jsonify(error=str(e)), 500
+        logger.error(f"Error in /Test: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-@app.route('/PDF', methods=['POST'])
-def pdf():
+@app.post('/PDF')
+async def pdf(request: Request):
     try:
-        browser = get_browser()
-        with browser.new_context(ignore_https_errors=True) as context:
-            page = context.new_page()
-            page.set_content(request.get_data(as_text=True))
-            data = page.pdf(format='A4', print_background=True)
-            return Response(response=data, status=200, mimetype='application/pdf')
+        content = await request.body()
+        html_content = content.decode('utf-8')
+        
+        browser = await get_browser()
+        context = await browser.new_context(ignore_https_errors=True)
+        try:
+            page = await context.new_page()
+            await page.set_content(html_content)
+            data = await page.pdf(format='A4', print_background=True)
+            return StreamingResponse(
+                io.BytesIO(data),
+                media_type='application/pdf',
+                headers={'Content-Disposition': 'inline; filename="document.pdf"'}
+            )
+        finally:
+            await context.close()
     except Exception as e:
-        logging.error(f"Error in /PDF: {e}")
-        return jsonify(error=str(e)), 500
+        logger.error(f"Error in /PDF: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-@app.route('/PDFURL', methods=['GET'])
-def pdfFromURL():
-    dataUrl = request.args.get('dataUrl')
+@app.get('/PDFURL')
+async def pdf_from_url(
+    dataUrl: str = Query(..., description="URL to convert to PDF"),
+    authorization: str = Header(None),
+    landscape: bool = Header(False)
+):
     if not dataUrl:
-        return jsonify(error="Missing dataUrl parameter"), 400
+        raise HTTPException(status_code=400, detail="Missing dataUrl parameter")
 
     try:
-        browser = get_browser()
-        with browser.new_context(ignore_https_errors=True) as context:
-            page = context.new_page()
-            if 'Authorization' in request.headers:
-                authorization = request.headers['Authorization']
-                page.set_extra_http_headers({'Authorization': f'Bearer {authorization}'})
-            landscape = request.headers.get('landscape', 'false').lower() == 'true'
-            page.goto(dataUrl, timeout=30000)
-            page.wait_for_load_state('networkidle', timeout=30000)
-            data = page.pdf(format='A4', print_background=True, landscape=landscape)
-            return Response(response=data, status=200, mimetype='application/pdf')
+        browser = await get_browser()
+        context = await browser.new_context(ignore_https_errors=True)
+        try:
+            page = await context.new_page()
+            if authorization:
+                await page.set_extra_http_headers({'Authorization': f'Bearer {authorization}'})
+            await page.goto(dataUrl, timeout=30000)
+            await page.wait_for_load_state('networkidle', timeout=30000)
+            data = await page.pdf(format='A4', print_background=True, landscape=landscape)
+            return StreamingResponse(
+                io.BytesIO(data),
+                media_type='application/pdf',
+                headers={'Content-Disposition': 'inline; filename="document.pdf"'}
+            )
+        finally:
+            await context.close()
     except Exception as e:
-        logging.error(f"Error in /PDFURL: {e}")
-        return jsonify(error=str(e)), 500
+        logger.error(f"Error in /PDFURL: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-@app.route('/PDFToImage', methods=['GET'])
-def pdfToImage():
-    dataUrl = request.args.get('dataUrl')
+@app.get('/PDFToImage')
+async def pdf_to_image(
+    dataUrl: str = Query(..., description="URL to convert to image"),
+    authorization: str = Header(None)
+):
     if not dataUrl:
-        return jsonify(error="Missing dataUrl parameter"), 400
+        raise HTTPException(status_code=400, detail="Missing dataUrl parameter")
 
     try:
-        browser = get_browser()
-        with browser.new_context(ignore_https_errors=True) as context:
-            page = context.new_page()
-            if 'Authorization' in request.headers:
-                authorization = request.headers['Authorization']
-                page.set_extra_http_headers({'Authorization': f'Bearer {authorization}'})
-            page.goto(dataUrl, timeout=30000)
-            page.wait_for_load_state('networkidle', timeout=30000)
-            screenshot = page.screenshot(full_page=True)
+        browser = await get_browser()
+        context = await browser.new_context(ignore_https_errors=True)
+        try:
+            page = await context.new_page()
+            if authorization:
+                await page.set_extra_http_headers({'Authorization': f'Bearer {authorization}'})
+            await page.goto(dataUrl, timeout=30000)
+            await page.wait_for_load_state('networkidle', timeout=30000)
+            screenshot = await page.screenshot(full_page=True)
             img_byte_arr = io.BytesIO(screenshot)
             img_byte_arr.seek(0)
-            return send_file(img_byte_arr, mimetype='image/png')
+            return StreamingResponse(
+                img_byte_arr,
+                media_type='image/png',
+                headers={'Content-Disposition': 'inline; filename="screenshot.png"'}
+            )
+        finally:
+            await context.close()
     except Exception as e:
-        logging.error(f"Error in /PDFToImage: {e}")
-        return jsonify(error=str(e)), 500
+        logger.error(f"Error in /PDFToImage: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5501)
+    import uvicorn
+    uvicorn.run(app, host='0.0.0.0', port=5501)

@@ -1,2 +1,3 @@
 from app import app
-# gunicorn --bind 0.0.0.0:5501 --workers 2 --timeout 120 wsgi:app
+# uvicorn wsgi:app --host 0.0.0.0 --port 5501 --workers 1
+# Note: Use --workers 1 since browser is shared, or implement proper browser pool for multiple workers
