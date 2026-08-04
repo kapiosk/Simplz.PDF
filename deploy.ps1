@@ -1,14 +1,14 @@
 $ErrorActionPreference = "Stop"
 
 Write-Host "Stopping existing containers..." -ForegroundColor Yellow
-docker compose down
+docker --context LinuxWeb compose down
 
 Write-Host "Building and starting services..." -ForegroundColor Green
-docker compose up -d --build
+docker --context LinuxWeb compose up -d --build
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "Deployment successful!" -ForegroundColor Green
-    docker compose ps
+    docker --context LinuxWeb compose ps
 } else {
     Write-Host "Deployment failed!" -ForegroundColor Red
     exit 1
