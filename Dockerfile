@@ -15,18 +15,25 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # The registry sits behind Cloudflare, which rejects any request body over
 # 100 MiB. Docker uploads each layer as a single PUT, so no layer may exceed
-# that. The headless shell install is ~250 MiB as one layer, dominated by the
-# ~188 MiB chrome-headless-shell binary -- and a single file cannot span
-# layers. So stage it into two trees that each mirror /ms-playwright: the
-# binary alone, and everything else. They are COPYed separately below, which
-# lands them as two layers of roughly 79 MiB and 30 MiB.
+# that. The headless shell install is one oversized layer dominated by a single
+# huge binary -- and a single file cannot span layers. So stage it into two
+# trees that each mirror /ms-playwright: the binary alone, and everything else.
+# They are COPYed separately below, which lands them as two layers of roughly
+# 79 + 30 MiB on amd64 and 99 + 20 MiB on arm64.
+#
+# The binary is named chrome-headless-shell on amd64 but headless_shell on
+# arm64, so match either. Beware that the arm64 binary is much bigger (300 MiB
+# raw) and its layer clears the 100 MiB cap by only ~1.4 MiB, so the next
+# chromium bump may well break the push. Splitting cannot help further -- the
+# binary is one file -- so that will mean stripping it, bypassing Cloudflare
+# for the registry hostname, or fetching the browser at runtime.
 FROM base AS browser
 
 RUN playwright install --only-shell chromium \
     && mkdir -p /stage-rest /stage-big \
     && cp -a /ms-playwright /stage-rest/ms-playwright \
     && cd /stage-rest/ms-playwright \
-    && shell="$(find . -type f -name chrome-headless-shell -size +50M | head -1)" \
+    && shell="$(find . -type f \( -name chrome-headless-shell -o -name headless_shell \) -size +50M | head -1)" \
     && [ -n "$shell" ] \
     && mkdir -p "/stage-big/ms-playwright/$(dirname "$shell")" \
     && mv "$shell" "/stage-big/ms-playwright/$shell"
